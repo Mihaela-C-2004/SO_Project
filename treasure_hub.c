@@ -18,7 +18,7 @@ int monitor_running = 0;
 void process_request() {
     FILE *fp = fopen(TMP_REQUEST, "r");
     if (!fp) {
-        perror("Monitor: failed to open request file");
+        perror("Monitor failed to open request file");
         return;
     }
 
@@ -32,14 +32,14 @@ void process_request() {
 
     FILE *resp = fopen(TMP_RESPONSE, "w");
     if (!resp) {
-        perror("Monitor: failed to open response file");
+        perror("Monitor failed to open response file");
         return;
     }
 
     if (strcmp(command, "list_hunts") == 0) {
         DIR *dir = opendir(".");
         if (!dir) {
-            fprintf(resp, "Could not open current directory\n");
+            fprintf(resp, "Couldn't open current directory\n");
             fclose(resp);
             return;
         }
@@ -231,7 +231,7 @@ int main(int argc, char *argv[]) {
 
         if (strcmp(command, "start_monitor") == 0) {
             if (monitor_running) {
-                printf("Monitor already running.\n");
+                printf("Monitor already running\n");
                 continue;
             }
 
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
                    strncmp(command, "view_treasure", 13) == 0) {
 
             if (!monitor_running) {
-                printf("Monitor is not running. Please start it first.\n");
+                printf("Monitor is not running. Start it first\n");
                 continue;
             }
 
@@ -261,22 +261,22 @@ int main(int argc, char *argv[]) {
 
         } else if (strcmp(command, "stop_monitor") == 0) {
             if (!monitor_running) {
-                printf("Monitor is not running.\n");
+                printf("Monitor is not running\n");
                 continue;
             }
 
             send_request("stop_monitor");
-            printf("Sent stop request to monitor. Waiting for it to terminate\n");
+            printf("Sent stop request to monitor. Waiting to terminate\n");
 
         } else if (strcmp(command, "exit") == 0) {
             if (monitor_running) {
-                printf("Error: Cannot exit while monitor is still running.\n");
+                printf("Error: Can't exit while monitor is still running\n");
             } else {
                 break;
             }
 
         } else {
-            printf("Unknown or invalid command.\n");
+            printf("Unknown/invalid command\n");
         }
     }
 
