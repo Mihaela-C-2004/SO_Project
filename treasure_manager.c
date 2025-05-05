@@ -4,6 +4,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <dirent.h>
+#include <sys/types.h>
 
 typedef struct {
     char treasure_id[30];
@@ -15,7 +17,7 @@ typedef struct {
 } Treasure;
 
 void log_operation(const char *hunt_id, const char *dir_path, const char *message) {
-    char log_path[150];
+    char log_path[100];
     FILE *log_file;
 
     strcpy(log_path, dir_path);
@@ -73,6 +75,46 @@ void add_treasure(const char *dir_path, const char *file_path, Treasure treasure
     write(fd, &treasure, sizeof(Treasure));
     close(fd);
     printf("Treasure with ID %s added successfully in %s.\n", treasure.treasure_id, dir_path);
+}
+
+void list_hunts() {
+    DIR *dir = opendir(".");
+    if (!dir) {
+        perror("Could not open current directory");
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.')
+            continue;
+
+        // Verifică dacă este director
+        struct stat st;
+        if (stat(entry->d_name, &st) != 0 || !S_ISDIR(st.st_mode))
+            continue;
+
+        char treasure_file[256];
+        strcpy(treasure_file, "./");
+        strcat(treasure_file, entry->d_name);
+        strcat(treasure_file, "/treasures.bin");
+
+        FILE *fp = fopen(treasure_file, "rb");
+        if (!fp)
+            continue;
+
+        int count = 0;
+        Treasure t;
+        while (fread(&t, sizeof(Treasure), 1, fp) == 1) {
+            count++;
+        }
+
+        fclose(fp);
+
+        printf("Hunt: %s | Total treasures: %d\n", entry->d_name, count);
+    }
+
+    closedir(dir);
 }
 
 void list_treasures(const char *file_path) {
@@ -247,7 +289,10 @@ int main(int argc, char *argv[]) {
         strcat(msg, argv[2]);
         log_operation(argv[2], dir_path, msg);
 
-    } else
+    } else if (strcmp(argv[1], "list_hunts") == 0) {
+        list_hunts();
+
+    }else
         printf("Invalid command or missing arguments.\n");
 
     return 0;
