@@ -5,7 +5,7 @@ gcc -Wall -o treasure_hub treasure_hub.c
 ./treasure_manager add hunt100
 ->TR1 Alice 15.15 14.15 Il stie pe Bob 10
 ./treasure_manager add hunt100
-->TR2 Bob 56.55v12.32 Are o lampa rosie 5
+->TR2 Bob 56.55 12.32 Are o lampa rosie 5
 ./treasure_hub
 start_monitor
 list_hunts
