@@ -1,0 +1,11 @@
+pkill treasure_hub
+rm -f /tmp/monitor_request /tmp/monitor_response
+
+gcc -Wall -o treasure_manager treasure_manager.c
+gcc -Wall -o treasure_hub treasure_hub.c
+./treasure_hub
+start_monitor
+list_hunts
+list_treasures hunt001
+view_treasure hunt001 1
+stop_monitor
