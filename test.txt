@@ -12,3 +12,4 @@ list_hunts
 list_treasures hunt100
 view_treasure hunt100 TR1
 stop_monitor
+exit
