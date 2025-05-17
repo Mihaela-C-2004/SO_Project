@@ -221,7 +221,7 @@ void remove_hunt(const char *dir_path) {
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
-        printf("Usage: %s [add <hunt_id> | list <hunt_id> | view <hunt_id> <id> | remove_treasure <hunt_id> <id> | remove_hunt <hunt_id>]\n", argv[0]);
+        printf("Usage: %s [add <hunt_id> | list <hunt_id> | view <hunt_id> <id> | remove_treasure <hunt_id> <id> | list_hunts | remove_hunt <hunt_id>]\n", argv[0]);
         return 1;
     }
 
