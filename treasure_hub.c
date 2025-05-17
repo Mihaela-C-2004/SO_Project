@@ -1,3 +1,5 @@
+/*
+//  update fara duplicate de cod 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,9 +7,6 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include <errno.h>
-#include <dirent.h>
-#include <sys/stat.h>
 
 #define TMP_REQUEST "/tmp/monitor_request"
 #define TMP_RESPONSE "/tmp/monitor_response"
@@ -15,172 +14,77 @@
 pid_t monitor_pid = -1;
 int monitor_running = 0;
 
+//monitor
 void process_request() {
     FILE *fp = fopen(TMP_REQUEST, "r");
-    if (!fp) {
-        perror("Monitor failed to open request file");
-        return;
-    }
+    if (!fp) return;
 
-    char command[128];
+    char command[256];
     if (!fgets(command, sizeof(command), fp)) {
         fclose(fp);
         return;
     }
-    command[strcspn(command, "\n")] = 0;
     fclose(fp);
+
+    char *newline = strchr(command, '\n');
+    if (newline) *newline = '\0';
 
     FILE *resp = fopen(TMP_RESPONSE, "w");
     if (!resp) {
-        perror("Monitor failed to open response file");
+        perror("Could not open response file");
         return;
     }
-
-    if (strcmp(command, "list_hunts") == 0) {
-        DIR *dir = opendir(".");
-        if (!dir) {
-            fprintf(resp, "Couldn't open current directory\n");
-            fclose(resp);
-            return;
-        }
-
-        struct dirent *entry;
-        while ((entry = readdir(dir)) != NULL) {
-            if (entry->d_name[0] == '.')
-                continue;
-
-            struct stat st;
-            if (stat(entry->d_name, &st) != 0 || !S_ISDIR(st.st_mode))
-                continue;
-
-	    char treasure_file[256];
-	    strcpy(treasure_file, entry->d_name);
-	    strcat(treasure_file, "/treasures.bin");
-
-            FILE *fp = fopen(treasure_file, "rb");
-            if (!fp)
-                continue;
-
-            int count = 0;
-            struct {
-                char treasure_id[30];
-                char username[50];
-                float latitude;
-                float longitude;
-                char clue[100];
-                int value;
-            } t;
-
-            while (fread(&t, sizeof(t), 1, fp) == 1)
-                count++;
-
-            fclose(fp);
-            fprintf(resp, "Hunt: %s | Total treasures: %d\n", entry->d_name, count);
-        }
-
-        closedir(dir);
-
-    } else if (strncmp(command, "list_treasures ", 15) == 0) {
-        char *hunt_id = command + 15;
-        char filepath[100];
-        snprintf(filepath, sizeof(filepath), "./%s/treasures.bin", hunt_id);
-
-        FILE *fp = fopen(filepath, "rb");
-        if (!fp) {
-            fprintf(resp, "Error: Could not open file for hunt '%s'\n", hunt_id);
-            fclose(resp);
-            return;
-        }
-
-        struct {
-            char treasure_id[30];
-            char username[50];
-            float latitude;
-            float longitude;
-            char clue[100];
-            int value;
-        } t;
-
-        while (fread(&t, sizeof(t), 1, fp) == 1) {
-            fprintf(resp, "ID: %s | User: %s | Location: (%.2f, %.2f)\nClue: %s | Value: %d\n\n",
-                    t.treasure_id, t.username, t.latitude, t.longitude, t.clue, t.value);
-        }
-
-        fclose(fp);
-
-    } else if (strncmp(command, "view_treasure ", 14) == 0) {
-        char *args = command + 14;
-        char *hunt_id = strtok(args, " ");
-        char *treasure_id = strtok(NULL, " ");
-
-        if (!hunt_id || !treasure_id) {
-            fprintf(resp, "Invalid view_treasure command\n");
-            fclose(resp);
-            return;
-        }
-
-        char filepath[100];
-        snprintf(filepath, sizeof(filepath), "./%s/treasures.bin", hunt_id);
-
-        FILE *fp = fopen(filepath, "rb");
-        if (!fp) {
-            fprintf(resp, "Error: Could not open file for hunt '%s'\n", hunt_id);
-            fclose(resp);
-            return;
-        }
-
-        struct {
-            char treasure_id[30];
-            char username[50];
-            float latitude;
-            float longitude;
-            char clue[100];
-            int value;
-        } t;
-
-        int found = 0;
-        while (fread(&t, sizeof(t), 1, fp) == 1) {
-            if (strcmp(t.treasure_id, treasure_id) == 0) {
-                fprintf(resp, "Treasure Found:\n");
-                fprintf(resp, "ID: %s\nUser: %s\nLatitude: %.2f\nLongitude: %.2f\nClue: %s\nValue: %d\n",
-                        t.treasure_id, t.username, t.latitude, t.longitude, t.clue, t.value);
-                found = 1;
-                break;
-            }
-        }
-
-        if (!found)
-            fprintf(resp, "Treasure with ID %s not found in hunt %s.\n", treasure_id, hunt_id);
-
-        fclose(fp);
-
-    } else if (strcmp(command, "stop_monitor") == 0) {
-        fprintf(resp, "Monitor stops\n");
-        fclose(resp);
-        remove(TMP_REQUEST);
-        exit(0);
-    } else {
-        fprintf(resp, "Unknown command: %s\n", command);
-    }
-
     fclose(resp);
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Proces copil
+        freopen(TMP_RESPONSE, "w", stdout);
+
+        if (strcmp(command, "list_hunts") == 0) {
+            execl("./treasure_manager", "treasure_manager", "list_hunts", "space", NULL);
+        } else if (strncmp(command, "list_treasures ", 15) == 0) {
+            char *hunt_id = command + 15;
+            execl("./treasure_manager", "treasure_manager", "list", hunt_id, NULL);
+        } else if (strncmp(command, "view_treasure ", 14) == 0) {
+            char *args = command + 14;
+            char *hunt_id = strtok(args, " ");
+            char *treasure_id = strtok(NULL, " ");
+            if (hunt_id && treasure_id) {
+                execl("./treasure_manager", "treasure_manager", "view", hunt_id, treasure_id, NULL);
+            } else {
+                execlp("echo", "echo", "Invalid arguments for view_treasure", NULL);
+            }
+        } else if (strcmp(command, "stop_monitor") == 0) {
+            execlp("echo", "echo", "Monitor stops", NULL);
+        } else {
+            execlp("echo", "echo", "Unknown command", NULL);
+        }
+
+        perror("exec failed");
+        exit(1);
+    } else if (pid > 0) {
+        wait(NULL);
+        if (strcmp(command, "stop_monitor") == 0) {
+            remove(TMP_REQUEST);
+            exit(0);
+        }
+    }
 }
 
 void sigusr1_handler(int sig) {
     process_request();
 }
 
-//interfata
-
+//hub
 void send_request(const char *message) {
     FILE *fp = fopen(TMP_REQUEST, "w");
     if (!fp) {
-        perror("Error writing request");
+        perror("Failed to write to request file");
         return;
     }
     fprintf(fp, "%s\n", message);
     fclose(fp);
-
     kill(monitor_pid, SIGUSR1);
 }
 
@@ -191,7 +95,7 @@ void wait_for_response() {
 
     FILE *fp = fopen(TMP_RESPONSE, "r");
     if (!fp) {
-        perror("Error reading response");
+        perror("Failed to read response");
         return;
     }
 
@@ -208,9 +112,16 @@ void handle_monitor_exit(int sig) {
     printf("Monitor has exited.\n");
 }
 
+
 int main(int argc, char *argv[]) {
-    if (getppid() != 1 && argc == 2 && strcmp(argv[1], "--monitor") == 0) {
-        signal(SIGUSR1, sigusr1_handler);
+    // Dacă e apelat ca monitor
+    if (argc == 2 && strcmp(argv[1], "--monitor") == 0) {
+        struct sigaction sa;
+        sa.sa_handler = sigusr1_handler;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = SA_RESTART;
+        sigaction(SIGUSR1, &sa, NULL);
+
         while (1) pause();
     }
 
@@ -220,18 +131,21 @@ int main(int argc, char *argv[]) {
     sa.sa_flags = 0;
     sigaction(SIGCHLD, &sa, NULL);
 
-    char command[128];
+    char command[256];
 
     while (1) {
         printf("> ");
         fflush(stdout);
 
-        if (!fgets(command, sizeof(command), stdin)) break;
-        command[strcspn(command, "\n")] = 0;
+        if (!fgets(command, sizeof(command), stdin))
+            break;
+
+        char *newline = strchr(command, '\n');
+        if (newline) *newline = '\0';
 
         if (strcmp(command, "start_monitor") == 0) {
             if (monitor_running) {
-                printf("Monitor already running\n");
+                printf("Monitor already running.\n");
                 continue;
             }
 
@@ -242,7 +156,7 @@ int main(int argc, char *argv[]) {
                 exit(1);
             } else if (monitor_pid > 0) {
                 monitor_running = 1;
-                printf("Monitor started with PID %d.\n", monitor_pid);
+                printf("Monitor started with PID %d\n", monitor_pid);
             } else {
                 perror("Fork failed");
             }
@@ -252,7 +166,7 @@ int main(int argc, char *argv[]) {
                    strncmp(command, "view_treasure", 13) == 0) {
 
             if (!monitor_running) {
-                printf("Monitor is not running. Start it first\n");
+                printf("Monitor is not running. Start it first.\n");
                 continue;
             }
 
@@ -261,24 +175,221 @@ int main(int argc, char *argv[]) {
 
         } else if (strcmp(command, "stop_monitor") == 0) {
             if (!monitor_running) {
-                printf("Monitor is not running\n");
+                printf("Monitor is not running.\n");
                 continue;
             }
 
             send_request("stop_monitor");
-            printf("Sent stop request to monitor. Waiting to terminate\n");
+            printf("Sent stop request. Waiting for monitor to terminate...\n");
 
         } else if (strcmp(command, "exit") == 0) {
             if (monitor_running) {
-                printf("Error: Can't exit while monitor is still running\n");
+                printf("Error: Monitor is still running. Stop it first.\n");
             } else {
                 break;
             }
 
         } else {
-            printf("Unknown/invalid command\n");
+            printf("Unknown or invalid command.\n");
         }
     }
 
     return 0;
 }
+
+*/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <dirent.h>
+#include <sys/stat.h>
+
+#define MAX_CMD 128
+
+int to_monitor[2], from_monitor[2];
+pid_t monitor_pid = -1;
+int monitor_running = 0;
+
+
+
+void start_monitor() {
+    pipe(to_monitor);
+    pipe(from_monitor);
+
+    monitor_pid = fork();
+    if (monitor_pid == 0) {
+        dup2(to_monitor[0], STDIN_FILENO);
+        dup2(from_monitor[1], STDOUT_FILENO);
+        close(to_monitor[1]);
+        close(from_monitor[0]);
+        execl("./monitor_hub", "./monitor_hub", "--monitor", NULL);
+        perror("exec failed");
+        exit(1);
+    }
+
+    close(to_monitor[0]);
+    close(from_monitor[1]);
+    monitor_running = 1;
+    printf("Monitor started with PID %d.\n", monitor_pid);
+}
+
+void send_command(const char *cmd) {
+    write(to_monitor[1], cmd, strlen(cmd));
+    write(to_monitor[1], "\n", 1);
+}
+
+void read_response() {
+    char buf[256];
+    int n;
+    while ((n = read(from_monitor[0], buf, sizeof(buf) - 1)) > 0) {
+        buf[n] = '\0';
+        printf("%s", buf);
+        if (strstr(buf, "Monitor stops")) break;
+    }
+}
+
+void calculate_score() {
+    DIR *dir = opendir(".");
+    if (!dir) {
+        perror("Could not open directory");
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_name[0] == '.') continue;
+
+        struct stat st;
+        if (stat(entry->d_name, &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+
+        pid_t pid = fork();
+        if (pid == 0) {
+            int pipefd[2];
+            pipe(pipefd);
+            pid_t calc_pid = fork();
+            if (calc_pid == 0) {
+                dup2(pipefd[1], STDOUT_FILENO);
+                close(pipefd[0]);
+                execl("./score_calculator", "./score_calculator", entry->d_name, NULL);
+                perror("exec score_calculator");
+                exit(1);
+            } else {
+                close(pipefd[1]);
+                char buffer[256];
+                int n;
+                printf("\n--- Scores for hunt %s ---\n", entry->d_name);
+                while ((n = read(pipefd[0], buffer, sizeof(buffer)-1)) > 0) {
+                    buffer[n] = '\0';
+                    printf("%s", buffer);
+                }
+                close(pipefd[0]);
+                wait(NULL);
+                exit(0);
+            }
+        }
+        wait(NULL);
+    }
+
+    closedir(dir);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc == 2 && strcmp(argv[1], "--monitor") == 0) {
+        char command[MAX_CMD];
+        while (fgets(command, sizeof(command), stdin)) {
+            command[strcspn(command, "\n")] = 0;
+
+            if (strcmp(command, "stop_monitor") == 0) {
+                printf("Monitor stops\n");
+                fflush(stdout);
+                break;
+            }
+
+            char *args[5] = {0};
+            int i = 0;
+            char *token = strtok(command, " ");
+            while (token && i < 4) {
+                args[i++] = token;
+                token = strtok(NULL, " ");
+            }
+
+            pid_t pid = fork();
+            if (pid == 0) {
+                if (strcmp(args[0], "list_hunts") == 0) {
+                    execl("./treasure_manager", "treasure_manager", "list_hunts", NULL);
+                } else if (strcmp(args[0], "list_treasures") == 0 && args[1]) {
+                    execl("./treasure_manager", "treasure_manager", "list", args[1], NULL);
+                } else if (strcmp(args[0], "view_treasure") == 0 && args[1] && args[2]) {
+                    execl("./treasure_manager", "treasure_manager", "view", args[1], args[2], NULL);
+                } else {
+                    printf("Unknown or invalid command\n");
+                    exit(1);
+                }
+                perror("exec treasure_manager");
+                exit(1);
+            } else {
+                waitpid(pid, NULL, 0);
+            }
+
+            fflush(stdout);
+        }
+
+        return 0;
+    }
+
+ 
+    char input[MAX_CMD];
+    while (1) {
+        printf("> ");
+        fflush(stdout);
+        if (!fgets(input, sizeof(input), stdin)) break;
+        input[strcspn(input, "\n")] = 0;
+
+        if (strcmp(input, "start_monitor") == 0) {
+            if (!monitor_running)
+                start_monitor();
+            else
+                printf("Monitor already running.\n");
+
+        } else if (strncmp(input, "list_hunts", 10) == 0 ||
+                   strncmp(input, "list_treasures", 14) == 0 ||
+                   strncmp(input, "view_treasure", 13) == 0 ||
+                   strcmp(input, "stop_monitor") == 0) {
+
+            if (!monitor_running) {
+                printf("Monitor not running.\n");
+                continue;
+            }
+
+            send_command(input);
+            read_response();
+
+            if (strcmp(input, "stop_monitor") == 0) {
+                waitpid(monitor_pid, NULL, 0);
+                monitor_running = 0;
+                printf("Monitor stopped.\n");
+            }
+
+        } else if (strcmp(input, "calculate_score") == 0) {
+            calculate_score();
+
+        } else if (strcmp(input, "exit") == 0) {
+            if (monitor_running) {
+                printf("Monitor is still running. Please stop it first.\n");
+            } else {
+                break;
+            }
+
+        } else {
+            printf("Unknown command.\n");
+        }
+    }
+
+    return 0;
+}
+
