@@ -1,7 +1,9 @@
 pkill treasure_hub
 rm -f /tmp/monitor_request /tmp/monitor_response
+
 gcc -Wall -o treasure_manager treasure_manager.c
 gcc -Wall -o treasure_hub treasure_hub.c
+gcc -Wall -o score_calculator score_calculator.c
 ./treasure_manager add hunt100
 ->TR1 Alice 15.15 14.15 Il stie pe Bob 10
 ./treasure_manager add hunt100
@@ -12,4 +14,3 @@ list_hunts
 list_treasures hunt100
 view_treasure hunt100 TR1
 stop_monitor
-exit
